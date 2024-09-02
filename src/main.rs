@@ -2,7 +2,7 @@ mod constant;
 mod time;
 mod logger;
 
-use std::{error::Error, io::{BufRead, BufReader, Lines, Write}, net::{Ipv4Addr, SocketAddrV4, TcpListener, TcpStream}, sync::Arc};
+use std::{error::Error, io::{BufRead, BufReader, Lines, Write}, net::{Ipv4Addr, SocketAddrV4, TcpListener, TcpStream}};
 use logger::Logger;
 use time::Time;
 
