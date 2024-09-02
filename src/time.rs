@@ -1,4 +1,4 @@
-use super::constant::{DAY_OF_WEEKS, MONTHS, MONTH_LENGTHS, YEAR_LENGTHS};
+use crate::constant::{DAY_OF_WEEKS, MONTHS, MONTH_LENGTHS, YEAR_LENGTHS};
 use std::{error::Error, time::{SystemTime, UNIX_EPOCH}};
 
 pub struct Time {
