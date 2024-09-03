@@ -2,6 +2,7 @@ mod constant;
 mod time;
 mod logger;
 mod http;
+mod utility;
 
 use std::{error::Error, io::{BufRead, BufReader, Lines, Write}, net::{Ipv4Addr, SocketAddrV4, TcpListener, TcpStream}};
 use http::{HttpStatus, get_response};
@@ -22,18 +23,18 @@ fn main() -> Result<(), Box<dyn Error>> {
 				if &request_uri[end_index..] == " HTTP/1.1" {
 					if let Some(start_index) = request_uri.find(' ') {
 						if &request_uri[..start_index + 1] == "GET " {
-							stream.write_all(&get_response(HttpStatus::Ok, Some(vec!["Content-Type: text/plain"]), Some(&request_uri[start_index+1..end_index]))?)?;
+							send!(stream, HttpStatus::Ok, Some(vec!["Content-Type: text/plain"]), Some(&request_uri[start_index+1..end_index]));
 						} else {
-							stream.write_all(&get_response(HttpStatus::MethodNotAllowed, None, None)?)?;
+							send!(stream, HttpStatus::MethodNotAllowed, None, None);
 						}
 					} else {
-						stream.write_all(&get_response(HttpStatus::BadRequest, None, None)?)?;
+						send!(stream, HttpStatus::BadRequest, None, None);
 					}
 				} else {
-					stream.write_all(&get_response(HttpStatus::HTTPVersionNotSupported, None, None)?)?;
+					send!(stream, HttpStatus::HTTPVersionNotSupported, None, None);
 				}
 			} else {
-				stream.write_all(&get_response(HttpStatus::BadRequest, None, None)?)?;
+				send!(stream, HttpStatus::BadRequest, None, None);
 			}
 		} else {
 			logger.error("Failed to read stream")?;
