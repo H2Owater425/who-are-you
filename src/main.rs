@@ -3,42 +3,78 @@ mod time;
 mod logger;
 mod http;
 mod utility;
+mod whois;
 
-use std::{error::Error, io::{BufRead, BufReader, Lines, Write}, net::{Ipv4Addr, SocketAddrV4, TcpListener, TcpStream}};
+use std::{error::Error, io::{BufRead, BufReader, Lines, Write}, net::{Ipv4Addr, SocketAddrV4, TcpListener, TcpStream}, thread::spawn};
 use http::{HttpStatus, get_response};
 use logger::Logger;
+use utility::is_domain;
+use whois::lookup;
 
 fn main() -> Result<(), Box<dyn Error>> {
 	let listener: TcpListener = TcpListener::bind(SocketAddrV4::new(Ipv4Addr::new(0, 0, 0, 0), 80))?;
-	let mut logger: Logger = Logger::new();
+	let logger: Logger = Logger::new();
 
 	for stream in listener.incoming() {
-		let mut stream: TcpStream = stream?;
-		let mut lines: Lines<BufReader<&mut TcpStream>> = BufReader::new(&mut stream).lines();
+		let logger: Logger = logger.clone();
+		
+		spawn(move || {
+			let mut stream: TcpStream = stream.unwrap();
+			let mut lines: Lines<BufReader<&mut TcpStream>> = BufReader::new(&mut stream).lines();
 
-		if let Some(Ok(request_uri)) = lines.next() {
-			logger.info(&request_uri)?;
-			
-			if let Some(end_index) = request_uri.rfind(' ') {
-				if &request_uri[end_index..] == " HTTP/1.1" {
-					if let Some(start_index) = request_uri.find(' ') {
-						if &request_uri[..start_index + 1] == "GET " {
-							send!(stream, HttpStatus::Ok, Some(vec!["Content-Type: text/plain"]), Some(&request_uri[start_index+1..end_index]));
+			if let Some(Ok(request_uri)) = lines.next() {
+				logger.info(&request_uri).unwrap();
+
+				if let Some(end_index) = request_uri.rfind(' ') {
+					if &request_uri[end_index..] == " HTTP/1.1" {
+						if let Some(start_index) = request_uri.find(' ') {
+							if &request_uri[..start_index + 1] == "GET " {
+								let domain_length: usize = end_index - start_index;
+
+								if domain_length <= 253 && domain_length >= 4 {
+									let domain: &str = &request_uri[start_index+2..end_index];
+
+									if domain != "favicon.ico" {
+										if is_domain(domain) {
+											let result: String = lookup("whois.iana.org", &format!("{}\r\n", domain)).unwrap();
+
+											if result.len() > 124 {
+												let server: &str = &result[124..];
+												let server: &str = &server[..server.find('\n').unwrap()];
+
+												if is_domain(server) {
+													send!(stream, HttpStatus::Ok, Some(vec!["Content-Type: text/plain; charset=utf8"]), Some(&lookup(server, &format!("{}\r\n", domain)).unwrap()));
+												} else {
+													send!(stream, HttpStatus::InternalServerError, None, None);
+												}
+											} else {
+												send!(stream, HttpStatus::InternalServerError, None, None);
+											}
+										} else {
+											send!(stream, HttpStatus::BadRequest, None, None);
+										}
+									} else {
+										send!(stream, HttpStatus::NoContent, None, None);
+									}
+								} else {
+									send!(stream, HttpStatus::BadRequest, None, None);
+								}
+							} else {
+								send!(stream, HttpStatus::MethodNotAllowed, None, None);
+							}
 						} else {
-							send!(stream, HttpStatus::MethodNotAllowed, None, None);
+							send!(stream, HttpStatus::BadRequest, None, None);
 						}
 					} else {
-						send!(stream, HttpStatus::BadRequest, None, None);
+						send!(stream, HttpStatus::HTTPVersionNotSupported, None, None);
 					}
 				} else {
-					send!(stream, HttpStatus::HTTPVersionNotSupported, None, None);
+					send!(stream, HttpStatus::BadRequest, None, None);
 				}
 			} else {
-				send!(stream, HttpStatus::BadRequest, None, None);
+				logger.error("Failed to read stream").unwrap();
 			}
-		} else {
-			logger.error("Failed to read stream")?;
-		}
+		});
 	}
 
 	Ok(())
