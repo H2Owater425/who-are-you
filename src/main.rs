@@ -12,8 +12,10 @@ use utility::is_domain;
 use whois::lookup;
 
 fn main() -> Result<(), Box<dyn Error>> {
-	let listener: TcpListener = TcpListener::bind(SocketAddrV4::new(Ipv4Addr::new(0, 0, 0, 0), 80))?;
+	let listener: TcpListener = TcpListener::bind(SocketAddrV4::new(Ipv4Addr::new(0, 0, 0, 0), 3000))?;
 	let logger: Logger = Logger::new();
+
+	logger.info("Running at http://localhost:3000")?;
 
 	for stream in listener.incoming() {
 		let logger: Logger = logger.clone();
