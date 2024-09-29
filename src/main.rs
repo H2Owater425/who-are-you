@@ -5,17 +5,25 @@ mod http;
 mod utility;
 mod whois;
 
-use std::{error::Error, io::{BufRead, BufReader, Lines, Write}, net::{Ipv4Addr, SocketAddrV4, TcpListener, TcpStream}, thread::spawn};
+use std::{env::args, error::Error, io::{BufRead, BufReader, Lines, Write}, net::{Ipv4Addr, SocketAddrV4, TcpListener, TcpStream}, thread::spawn};
 use http::{HttpStatus, get_response};
 use logger::Logger;
 use utility::is_domain;
 use whois::lookup;
 
 fn main() -> Result<(), Box<dyn Error>> {
-	let listener: TcpListener = TcpListener::bind(SocketAddrV4::new(Ipv4Addr::new(0, 0, 0, 0), 3000))?;
+	let args: Vec<String> = args().collect();
+	let port: u16 = if args.len() == 2 {
+		args[1].parse::<u16>()?
+	} else {
+		3000
+	};
+	let listener: TcpListener = TcpListener::bind(SocketAddrV4::new(Ipv4Addr::new(0, 0, 0, 0), port))?;
 	let logger: Logger = Logger::new();
 
-	logger.info("Running at http://localhost:3000")?;
+	drop(args);
+
+	logger.info(&format!("Running at http://localhost:{}", port))?;
 
 	for stream in listener.incoming() {
 		let logger: Logger = logger.clone();
